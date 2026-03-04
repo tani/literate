@@ -1,4 +1,5 @@
-# Literate (Lean 4)
+# Literate Lean 4
+
 
 `literate` is a small Lean 4 library for literate-programming style source files.
 It allows markdown-like prose in Lean files while executing explicit `~~~lean` fenced blocks.
@@ -55,3 +56,7 @@ lake env lean Literate/Examples/Basic.lean
 ## Status
 
 Early version (`0.1.0`). Expect syntax/behavior changes.
+
+## Copyright
+
+Copyright (c) 2025 Taniguchi Masaya. All Right Reserved.
