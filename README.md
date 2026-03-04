@@ -30,7 +30,7 @@ import Literate
 ## Usage
 
 ```lean
-import Literate
+    import Literate
 
 # This heading is ignored
 
@@ -45,6 +45,21 @@ def success := "This was evaluated!"
 end Demo
 ~~~
 ```
+
+>     import Literate
+> 
+> # This heading is ignored
+> 
+> This line is prose and is ignored
+> 
+> ~~~lean
+> namespace Demo
+> 
+> def success := "This was evaluated!"
+> #check success
+> 
+> end Demo
+> ~~~
 
 ## Development
 
