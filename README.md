@@ -2,6 +2,7 @@
 
 `literate` is a small Lean 4 library for literate-programming style source files.
 It allows markdown-like prose in Lean files while executing explicit `~~~lean` fenced blocks.
+This is a practical example of a [polyglot](https://en.wikipedia.org/wiki/Polyglot_(computing)) source style.
 
 ## Features
 
