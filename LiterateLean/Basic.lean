@@ -120,8 +120,12 @@ def markdownInlineGuard : Parser := leading_parser
   notFollowedBy (symbol "~") "~" >>
   notFollowedBy (symbol "end") "end"
 
+def markdownHashToken : Parser := leading_parser "#" >> optional ident
+def markdownDollarToken : Parser := leading_parser "$" >> optional ident
+
 def markdownInlineToken : Parser := leading_parser
-  rawCh '`' <|> ident <|> rawIdent <|> strLit <|> numLit <|> scientificLit <|> charLit <|> nameLit <|>
+  rawCh '`' <|> markdownHashToken <|> markdownDollarToken <|> ident <|> rawIdent <|>
+  strLit <|> numLit <|> scientificLit <|> charLit <|> nameLit <|>
   categoryParser `markdownSym maxPrec
 
 def markdownInlineLineParser : Parser := leading_parser
