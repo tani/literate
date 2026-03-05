@@ -17,6 +17,7 @@ syntax ident : mdChunk
 syntax str : mdChunk
 syntax num : mdChunk
 syntax ":" : mdChunk
+syntax "//" : mdChunk
 syntax "," : mdChunk
 syntax "." : mdChunk
 syntax ";" : mdChunk

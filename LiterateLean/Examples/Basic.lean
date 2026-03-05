@@ -10,7 +10,7 @@
 
 *emphasis * markers* as **inline**
 
-This line has punctuation : , . ; ! ? and brackets [ref]("https://example.com")
+This line has punctuation : , . ; ! ? and brackets [ref](https://example.com)
 This line has numbers 0 1 2 3 and path/docs/v1
 
 `a`
