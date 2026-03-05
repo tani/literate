@@ -11,123 +11,39 @@ def elabLeanFence : CommandElab
   | `(command| ~~~lean $cmds* ~~~) => cmds.forM elabCommand
   | _ => throwError "invalid Lean fenced block"
 
-def markdownCodeSpanParser : Parser := leading_parser
-  rawCh '`' >> (ident <|> rawIdent <|> nameLit) >> rawCh '`'
-syntax (name := markdownCodeSpan) markdownCodeSpanParser : command
+private def stopPrefixes : List String :=
+  [ "#check", "#check_failure", "#eval", "#print", "#reduce", "#synth", "~~~lean", "~~~" ]
 
-private def isUnsafeToken (s : String) : Bool :=
-  ["/-", "/--", "/-!", "-/", "\"", "'", "`"].contains s
+private def guardKeywords : List String :=
+  [ "def ", "theorem ", "lemma ", "example ", "inductive ", "structure ", "class ", "instance "
+  , "namespace ", "section ", "import ", "open ", "@[", "end " ]
 
-private def isSymbolLikeChar (c : Char) : Bool :=
-  !c.isWhitespace && !c.isAlpha && !c.isDigit && c ≠ '"' && c ≠ '\'' && c ≠ '`'
+private def shouldStopAt (c : ParserContext) (i : String.Pos.Raw) : Bool :=
+  let remain := String.Pos.Raw.extract c.inputString i c.endPos
+  stopPrefixes.any (fun p => remain.startsWith p)
 
-private def escapeLeanString (s : String) : String :=
-  s.foldl (init := "") fun acc c =>
-    if c = '\\' then acc ++ "\\\\"
-    else if c = '"' then acc ++ "\\\""
-    else acc.push c
+private def markdownBlockGuard (c : ParserContext) (i : String.Pos.Raw) : Bool :=
+  let remain := String.Pos.Raw.extract c.inputString i c.endPos
+  guardKeywords.any (fun kw => remain.startsWith kw)
 
-private def registerToken (cat : Name) (tok : String) : CommandElabM Unit := do
-  if isUnsafeToken tok then
-    pure ()
+private partial def skipUntilLeanFenceFn (consumed : Bool) : ParserFn := fun c s =>
+  let i := s.pos
+  if shouldStopAt c i || (!consumed && markdownBlockGuard c i) then
+    if consumed then s else s.mkUnexpectedError "expected markdown text"
+  else if h : c.atEnd i then
+    if consumed then s else s.mkEOIError
   else
-    let cmdText := s!"syntax \"{escapeLeanString tok}\" : {cat}"
-    match Parser.runParserCategory (← getEnv) `command cmdText with
-    | .ok stx =>
-        try
-          elabCommand stx
-        catch _ =>
-          pure ()
-    | .error _ => pure ()
+    skipUntilLeanFenceFn true c (s.next' c i h)
 
-private def isAsciiOpChar (c : Char) : Bool :=
-  c = ':' || c = '=' || c = '-' || c = '>' || c = '<' || c = '|' || c = '&' || c = '+' ||
-  c = '*' || c = '/' || c = '.' || c = '!' || c = '?' || c = '%' || c = '^' || c = '~'
+private def markdownStartToken : Parser := leading_parser
+  symbol "#" <|> symbol ">" <|> symbol "-" <|> symbol "*" <|> symbol "<" <|> symbol "$" <|>
+  rawCh '`' <|> ident <|> rawIdent
 
-private def mkTokensOfLen (alphabet : Array Char) (len : Nat) : Array String :=
-  let atoms := alphabet.map Char.toString
-  let rec go : Nat → Array String
-    | 0 => #[]
-    | 1 => atoms
-    | n + 1 =>
-      let prev := go n
-      prev.foldl (init := #[]) fun acc p =>
-        atoms.foldl (init := acc) fun acc a => acc.push (p ++ a)
-  go len
+@[command_parser]
+def markdownBlock : Parser := leading_parser
+  lookahead markdownStartToken >> withFn (fun _ => skipUntilLeanFenceFn false) skip
 
-private def asciiOpAlphabet : Array Char := Id.run do
-  let mut out : Array Char := #[]
-  for n in [33:127] do
-    let c := Char.ofNat n
-    if isAsciiOpChar c then
-      out := out.push c
-  out
-
-private def registerSymbolRange (cat : Name) (lo hi : Nat) : CommandElabM Unit := do
-  if hi < lo then
-    throwError "invalid range: stop must be >= start"
-  for n in [lo:hi+1] do
-    let c := Char.ofNat n
-    if isSymbolLikeChar c then
-      registerToken cat c.toString
-
-private def registerAsciiSymbolCombos (cat : Name) (maxLen : Nat) : CommandElabM Unit := do
-  if maxLen < 2 then
-    throwError "invalid max length: must be >= 2"
-  if maxLen > 6 then
-    throwError "invalid max length: must be <= 6"
-  for len in [2:maxLen+1] do
-    for tok in mkTokensOfLen asciiOpAlphabet len do
-      registerToken cat tok
-
-syntax (name := registerMarkdownSymbolsFor)
-  "register_markdown_symbols_for" ident : command
-
-@[command_elab registerMarkdownSymbolsFor]
-def elabRegisterMarkdownSymbolsFor : CommandElab
-  | `(command| register_markdown_symbols_for $cat:ident) => do
-      let cat := cat.getId
-      registerSymbolRange cat 33 126
-      registerAsciiSymbolCombos cat 3
-      registerSymbolRange cat 0x2100 0x214F
-      registerSymbolRange cat 0x2190 0x21FF
-      registerSymbolRange cat 0x2200 0x22FF
-      registerSymbolRange cat 0x27C0 0x27EF
-      registerSymbolRange cat 0x2980 0x29FF
-      registerSymbolRange cat 0x2A00 0x2AFF
-  | _ => throwUnsupportedSyntax
-
-declare_syntax_cat markdownSym
-register_markdown_symbols_for markdownSym
-
-private def inlineGuardKeywords : List String :=
-  [ "def", "theorem", "lemma", "example", "inductive", "structure", "class", "instance"
-  , "namespace", "section", "import", "open", "@[", "~~~lean", "~~~", "~", "end" ]
-
-def markdownInlineGuard : Parser := leading_parser
-  inlineGuardKeywords.foldl
-    (fun p kw => p >> notFollowedBy (symbol kw) kw)
-    skip
-
-def markdownHashToken : Parser := leading_parser "#" >> optional ident
-def markdownDollarToken : Parser := leading_parser "$" >> optional ident
-
-def markdownInlineToken : Parser := leading_parser
-  rawCh '`' <|> markdownHashToken <|> markdownDollarToken <|> ident <|> rawIdent <|>
-  strLit <|> numLit <|> scientificLit <|> charLit <|> nameLit <|>
-  categoryParser `markdownSym maxPrec
-
-def markdownInlineLineParser : Parser := leading_parser
-  markdownInlineGuard >> many1 markdownInlineToken
-
-syntax (name := markdownInlineLine) markdownInlineLineParser : command
-
-def ignoreCommand : CommandElab := fun _ => pure ()
-
-@[command_elab markdownCodeSpan]
-def elabMarkdownCodeSpan : CommandElab := ignoreCommand
-
-@[command_elab markdownInlineLine]
-def elabMarkdownInlineLine : CommandElab := ignoreCommand
+@[command_elab markdownBlock]
+def elabMarkdownBlock : CommandElab := fun _ => pure ()
 
 end LiterateLean
