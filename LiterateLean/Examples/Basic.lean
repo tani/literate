@@ -8,10 +8,15 @@
 - list item one
 - list item two
 
+> **Theorem**:
+> *emphasis* and **strong emphasis** with `code` and [links](https://example.com)
+
 *emphasis * markers* as **inline**
 
 This line has punctuation : , . ; ! ? and brackets [ref](https://example.com)
 This line has numbers 0 1 2 3 and path/docs/v1
+
+$$∫^1_0 x dx$$
 
 `a`
 `LiterateLean.Examples.success`
@@ -47,4 +52,9 @@ end LiterateLean.Examples
 
 Final prose line should be ignored
 
-<!-- vim: set filetype=markdown : -->
+<!--
+vim: set filetype=markdown :
+Local Variables:
+mode: markdown
+End:
+-->
