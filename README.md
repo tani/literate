@@ -5,6 +5,9 @@
 It allows markdown-like prose in Lean files while executing explicit `~~~lean` fenced blocks.
 This is a practical example of a [polyglot](https://en.wikipedia.org/wiki/Polyglot_(computing)) source style.
 
+<img width="1552" height="1012" alt="image" src="https://github.com/user-attachments/assets/6534c42a-7009-4117-9ace-b92ea7afa69b" />
+
+
 ## Features
 
 - `~~~lean ... ~~~` command blocks are elaborated as normal Lean commands.
