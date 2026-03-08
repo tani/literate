@@ -1,5 +1,4 @@
 import Lean
-import LiterateLean.CjkTokens
 
 open Lean Elab Command Parser
 
@@ -31,13 +30,28 @@ private partial def skipMarkdownUntilLeanFenceFn (lineStart consumed : Bool) : P
     let isNl := isNewline c i
     skipMarkdownUntilLeanFenceFn isNl true c (s.next' c i h)
 
-private def isCJKV (c : Char) : Bool :=
+private def unicodeRanges : List (Nat × Nat) := [
+  -- skip ASCII / control characters
+  (0x00A1, 0xD7FF),
+  -- skip surrogate pairs
+  (0xE000, 0x10FFFF)
+]
+
+elab "add_unicode_tokens" : command => do
+  for (s, e) in unicodeRanges do
+    for i in [s:e+1] do
+      let ch := Char.ofNat i
+      liftCoreM <| Lean.Parser.addToken ch.toString .global
+
+add_unicode_tokens
+
+private def isUnicode (c : Char) : Bool :=
   let v := c.val.toNat
-  List.any cjkvRanges fun (s, e) => s ≤ v && v ≤ e
+  List.any unicodeRanges fun (s, e) => s ≤ v && v ≤ e
 
-private def cjkvFn : ParserFn := satisfyFn isCJKV "CJKV letter-like character"
+private def unicodeFn : ParserFn := satisfyFn isUnicode "Unicode letter-like character"
 
-private def cjkv : Parser := withFn (fun _ => cjkvFn) skip
+private def unicode : Parser := withFn (fun _ => unicodeFn) skip
 
 private def markdownStartToken : Parser := leading_parser
   symbol "#" <|> symbol ">" <|> symbol "-" <|> symbol "*" <|> symbol "<" <|>
@@ -47,7 +61,7 @@ private def markdownStartToken : Parser := leading_parser
   symbol "?" <|> symbol "/" <|> symbol "\\" <|> symbol "@" <|>
   symbol "{" <|> symbol "}" <|> symbol "&" <|> symbol "%" <|> symbol "^" <|>
   rawCh '`' <|> ident <|> rawIdent <|>
-  numLit <|> strLit <|> charLit <|> scientificLit <|> cjkv
+  numLit <|> strLit <|> charLit <|> scientificLit <|> unicode
 
 private def markdownBlockFn : ParserFn := fun c s =>
   let i := s.pos
